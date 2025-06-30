@@ -1,73 +1,174 @@
-# Welcome to your Lovable project
+# Swayami Backend
 
-## Project info
+FastAPI backend for Swayami - Self-reliance dashboard with AI-powered productivity features.
 
-**URL**: https://lovable.dev/projects/8c5bc07b-8897-4606-a372-3b48e3f7b827
+## Features
 
-## How can I edit this code?
+- **FastAPI Framework**: Modern, fast web framework for building APIs
+- **MongoDB Atlas**: Cloud database for data persistence
+- **Authentication**: JWT-based authentication with Supabase integration
+- **AI Integration**: OpenAI GPT for task generation and analysis
+- **CORS Support**: Configured for frontend integration
 
-There are several ways of editing your application.
+## Quick Start
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/8c5bc07b-8897-4606-a372-3b48e3f7b827) and start prompting.
+- Python 3.9+
+- MongoDB Atlas account
+- OpenAI API key
+- Supabase project (for authentication)
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
+1. **Clone and setup:**
+   ```bash
+   git clone <your-backend-repo-url>
+   cd swayami-backend
+   ```
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+2. **Create virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Follow these steps:
+4. **Environment setup:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your actual values
+   ```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+5. **Run the server:**
+   ```bash
+   python main.py
+   ```
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+The API will be available at `http://localhost:8000`
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Environment Variables
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `MONGODB_URL` | MongoDB Atlas connection string | Yes |
+| `SECRET_KEY` | JWT secret key | Yes |
+| `OPENAI_API_KEY` | OpenAI API key for AI features | Yes |
+| `SUPABASE_URL` | Supabase project URL | Yes |
+| `SUPABASE_JWT_SECRET` | Supabase JWT secret | Yes |
+| `CORS_ORIGINS` | Allowed CORS origins | Yes |
+| `PORT` | Server port (default: 8000) | No |
+| `DEBUG` | Debug mode (default: True) | No |
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/login` - User login
+- `GET /api/auth/me` - Get current user
+
+### Users
+- `GET /api/users/by-email/{email}` - Get user by email
+- `POST /api/users` - Create new user
+- `PUT /api/users/{user_id}` - Update user
+- `PUT /api/users/{user_id}/onboarding` - Update onboarding status
+
+### Goals
+- `GET /api/goals` - Get user goals
+- `POST /api/goals` - Create new goal
+- `PATCH /api/goals/{goal_id}/progress` - Update goal progress
+
+### Tasks
+- `GET /api/tasks` - Get user tasks
+- `POST /api/tasks` - Create new task
+- `PUT /api/tasks/{task_id}` - Update task
+- `PATCH /api/tasks/{task_id}/status` - Update task status
+- `DELETE /api/tasks/{task_id}` - Delete task
+
+### Journals
+- `GET /api/journals` - Get user journal entries
+- `POST /api/journals` - Create journal entry
+
+### AI Features
+- `POST /api/ai/generate-tasks-from-goal` - Generate tasks from goal
+- `POST /api/ai/generate-daily-breakdown` - Create daily task breakdown
+- `POST /api/ai/analyze-journal` - Analyze journal content
+- `POST /api/ai/motivational-message` - Generate motivational message
+
+## Deployment
+
+### Render
+
+1. Connect your GitHub repository to Render
+2. Set environment variables in Render dashboard
+3. Deploy with the following settings:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `python main.py`
+   - **Environment**: Python 3.9+
+
+### Railway
+
+1. Connect your GitHub repository to Railway
+2. Add environment variables
+3. Deploy automatically on push
+
+### Docker
+
+```dockerfile
+FROM python:3.9-slim
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+COPY . .
+EXPOSE 8000
+
+CMD ["python", "main.py"]
 ```
 
-**Edit a file directly in GitHub**
+## Development
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Running Tests
 
-**Use GitHub Codespaces**
+```bash
+python -m pytest test_*.py
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Code Structure
 
-## What technologies are used for this project?
+```
+swayami-backend/
+├── app/
+│   ├── __init__.py
+│   ├── auth.py          # Authentication utilities
+│   ├── config.py        # Configuration settings
+│   ├── models.py        # Pydantic models
+│   ├── api/             # API routes
+│   │   ├── auth.py      # Auth endpoints
+│   │   ├── users.py     # User management
+│   │   ├── goals.py     # Goals management
+│   │   ├── tasks.py     # Tasks management
+│   │   ├── journals.py  # Journal endpoints
+│   │   └── ai.py        # AI-powered features
+│   ├── repositories/    # Database access layer
+│   └── services/        # Business logic services
+├── main.py              # FastAPI application entry point
+├── requirements.txt     # Python dependencies
+└── .env.example         # Environment variables template
+```
 
-This project is built with:
+## Contributing
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-## How can I deploy this project?
+## License
 
-Simply open [Lovable](https://lovable.dev/projects/8c5bc07b-8897-4606-a372-3b48e3f7b827) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+This project is licensed under the MIT License.
