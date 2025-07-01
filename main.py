@@ -1,6 +1,5 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 import logging
 
 from app.database import connect_to_mongo, close_mongo_connection, seed_initial_data
@@ -10,10 +9,18 @@ from app.api import goals, tasks, journals, ai, auth, users
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Lifespan events
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
+# Create FastAPI app - Compatible with FastAPI 0.95.2
+app = FastAPI(
+    title="Swayami API",
+    description="Self-Reliance Dashboard - Goal-based productivity companion with AI-powered insights",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Startup event
+@app.on_event("startup")
+async def startup_event():
     logger.info("🚀 Starting Swayami API...")
     try:
         await connect_to_mongo()
@@ -26,22 +33,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ Failed to start application: {e}")
         raise
-    
-    yield
-    
-    # Shutdown
+
+# Shutdown event
+@app.on_event("shutdown")
+async def shutdown_event():
     logger.info("🛑 Shutting down Swayami API...")
     await close_mongo_connection()
-
-# Create FastAPI app
-app = FastAPI(
-    title="Swayami API",
-    description="Self-Reliance Dashboard - Goal-based productivity companion with AI-powered insights",
-    version="1.0.0",
-    lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc"
-)
 
 # CORS middleware with comprehensive configuration for both dev and production
 ALLOWED_ORIGINS = [
