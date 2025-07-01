@@ -93,25 +93,49 @@ async def update_user(
     update_data: UserUpdate,
     current_user_id: str = Depends(get_current_user_id)
 ):
-    """Update user (flexible auth for development)"""
+    """Update user (flexible auth for development) - FIXED VERSION"""
     try:
         logger.info(f"🔐 UPDATE USER AUTH DEBUG:")
         logger.info(f"🔐 URL user_id: {user_id}")
         logger.info(f"🔐 Token user_id: {current_user_id}")
         logger.info(f"🔐 Update data: {update_data}")
         
-        # In development mode with mock auth, allow updates
-        # TODO: In production, enforce strict user ID matching
-        if user_id != current_user_id:
-            logger.warning(f"⚠️ USER ID MISMATCH - URL: {user_id}, Token: {current_user_id}")
-            logger.warning(f"⚠️ ALLOWING UPDATE FOR DEVELOPMENT MODE")
-        
-        user = await user_repository.update_user(user_id, update_data)
-        if not user:
+        # TEMPORARY FIX: Since ID-based lookup has issues, use email-based approach
+        # Step 1: Get user by ID to find their email (this works)
+        existing_user = await user_repository.get_user_by_id(user_id)
+        if not existing_user:
+            logger.error(f"❌ User not found by ID: {user_id}")
             raise HTTPException(status_code=404, detail="User not found")
-            
-        logger.info(f"✅ User updated successfully: {user.id}")
-        return user
+        
+        user_email = existing_user.email
+        logger.info(f"✅ Found user email: {user_email}")
+        
+        # Step 2: Perform update using email-based MongoDB query (more reliable)
+        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        if not update_dict:
+            logger.info(f"📝 No fields to update, returning existing user")
+            return existing_user
+        
+        update_dict["updated_at"] = datetime.utcnow()
+        logger.info(f"📝 Final update dict: {update_dict}")
+        
+        # Direct MongoDB update using email
+        collection = user_repository.get_collection()
+        result = await collection.update_one(
+            {"email": user_email},
+            {"$set": update_dict}
+        )
+        
+        logger.info(f"📝 MongoDB update result - matched: {result.matched_count}, modified: {result.modified_count}")
+        
+        if result.matched_count > 0:
+            # Return updated user using email lookup (this works)
+            updated_user = await user_repository.get_user_by_email(user_email)
+            if updated_user:
+                logger.info(f"✅ User updated successfully: {updated_user.id}")
+                return updated_user
+        
+        raise HTTPException(status_code=500, detail="Failed to update user")
         
     except HTTPException:
         raise
