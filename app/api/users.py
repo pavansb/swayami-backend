@@ -245,4 +245,76 @@ async def update_user_by_email(
         raise
     except Exception as e:
         logger.error(f"❌ Error updating user by email: {e}")
-        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
+
+@router.put("/{user_id}/debug", response_model=dict)
+async def debug_update_user(
+    user_id: str, 
+    update_data: UserUpdate,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    """Debug endpoint to see what's happening in user update"""
+    try:
+        logger.info(f"🐛 DEBUG UPDATE: user_id={user_id}")
+        logger.info(f"🐛 DEBUG UPDATE: update_data={update_data}")
+        logger.info(f"🐛 DEBUG UPDATE: current_user_id={current_user_id}")
+        
+        # Step 1: Check if user exists via GET
+        existing_user = await user_repository.get_user_by_id(user_id)
+        logger.info(f"🐛 DEBUG: User exists check: {existing_user is not None}")
+        
+        if not existing_user:
+            return {
+                "error": "User not found in get_user_by_id",
+                "user_id": user_id,
+                "step": "user_lookup_failed"
+            }
+        
+        # Step 2: Check update_data parsing
+        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        logger.info(f"🐛 DEBUG: Update dict: {update_dict}")
+        
+        if not update_dict:
+            return {
+                "message": "No fields to update",
+                "user_id": user_id,
+                "existing_user": existing_user.model_dump(),
+                "step": "no_update_needed"
+            }
+        
+        # Step 3: Try direct MongoDB update
+        collection = user_repository.get_collection()
+        update_dict["updated_at"] = datetime.utcnow()
+        
+        # Try string update
+        result = await collection.update_one(
+            {"_id": user_id},
+            {"$set": update_dict}
+        )
+        
+        logger.info(f"🐛 DEBUG: Update result - matched: {result.matched_count}, modified: {result.modified_count}")
+        
+        # Step 4: Check if user was actually updated
+        updated_user_data = await collection.find_one({"_id": user_id})
+        
+        return {
+            "message": "Debug update completed",
+            "user_id": user_id,
+            "update_dict": update_dict,
+            "update_result": {
+                "matched_count": result.matched_count,
+                "modified_count": result.modified_count
+            },
+            "updated_user_found": updated_user_data is not None,
+            "updated_user_data": str(updated_user_data) if updated_user_data else None,
+            "step": "update_completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"🐛 DEBUG ERROR: {e}")
+        return {
+            "error": str(e),
+            "error_type": type(e).__name__,
+            "user_id": user_id,
+            "step": "exception_occurred"
+        } 
