@@ -61,17 +61,12 @@ async def generate_tasks_from_goal(
 ):
     """Generate AI-powered tasks from goal title and description (frontend-compatible)"""
     try:
-        # Create a simple AI prompt for task generation
-        from app.services.openai_service import openai_service
-        
-        # Use OpenAI to generate tasks directly from goal title/description
-        import openai
+        # Simple direct implementation with fallback
         import json
-        from app.config import settings
         
-        client = openai.OpenAI(api_key=settings.openai_api_key)
-        
-        prompt = f"""
+        # Try to use OpenAI service if available
+        try:
+            prompt = f"""
 You are a productivity coach. Generate 5-7 actionable, specific tasks for this goal:
 
 Goal Title: {request.goal_title}
@@ -88,7 +83,7 @@ Return your response as JSON with this exact structure:
     "tasks": [
         {{
             "title": "Task title",
-            "description": "Detailed description",
+            "description": "Detailed description", 
             "priority": "high|medium|low",
             "estimatedDuration": 60
         }}
@@ -96,50 +91,56 @@ Return your response as JSON with this exact structure:
     "goalAnalysis": "Brief analysis of the goal and task strategy"
 }}
 """
-        
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",  # Use cheaper model for this
-            messages=[
-                {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=1500
-        )
-        
-        try:
+            
+            # Use the existing openai service
+            response = openai_service.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=1500
+            )
+            
             result = json.loads(response.choices[0].message.content)
             return GoalBasedTaskGenerationResponse(
                 tasks=result.get("tasks", []),
                 goalAnalysis=result.get("goalAnalysis", "This goal requires focused effort and consistent action.")
             )
-        except json.JSONDecodeError:
-            # Fallback if AI doesn't return valid JSON
-            return GoalBasedTaskGenerationResponse(
-                tasks=[
-                    {
-                        "title": f"Work on {request.goal_title}",
-                        "description": request.goal_description or "Focus on achieving this goal step by step",
-                        "priority": "medium",
-                        "estimatedDuration": 60
-                    }
-                ],
-                goalAnalysis="This goal requires focused effort and consistent action."
-            )
+            
+        except Exception as ai_error:
+            # AI failed, return structured fallback
+            pass
         
     except Exception as e:
-        # Always return a fallback response for the frontend
-        return GoalBasedTaskGenerationResponse(
-            tasks=[
-                {
-                    "title": f"Work on {request.goal_title}",
-                    "description": request.goal_description or "Focus on achieving this goal step by step",
-                    "priority": "medium",
-                    "estimatedDuration": 60
-                }
-            ],
-            goalAnalysis="This goal requires focused effort and consistent action."
-        )
+        # Any error - return structured fallback
+        pass
+    
+    # Always return a fallback response for the frontend
+    return GoalBasedTaskGenerationResponse(
+        tasks=[
+            {
+                "title": f"Plan your approach to {request.goal_title}",
+                "description": "Break down this goal into smaller, manageable steps",
+                "priority": "high",
+                "estimatedDuration": 45
+            },
+            {
+                "title": f"Research strategies for {request.goal_title}",
+                "description": "Look up best practices and methods to achieve this goal",
+                "priority": "medium", 
+                "estimatedDuration": 60
+            },
+            {
+                "title": f"Take first action toward {request.goal_title}",
+                "description": request.goal_description or "Start with the most obvious first step",
+                "priority": "high",
+                "estimatedDuration": 30
+            }
+        ],
+        goalAnalysis="This goal requires focused effort and consistent action. Break it down into smaller steps and track your progress regularly."
+    )
 
 @router.post("/summarize-journal", response_model=JournalSummaryResponse)
 async def summarize_journal(
