@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import List
 from app.models import (
     TaskGenerationRequest, TaskGenerationResponse, Task,
+    GoalBasedTaskGenerationRequest, GoalBasedTaskGenerationResponse,
     JournalSummaryRequest, JournalSummaryResponse,
     MoodAnalysisRequest, MoodAnalysisResponse
 )
@@ -52,6 +53,93 @@ async def generate_tasks(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generating tasks: {str(e)}")
+
+@router.post("/generate-tasks-from-goal", response_model=GoalBasedTaskGenerationResponse)
+async def generate_tasks_from_goal(
+    request: GoalBasedTaskGenerationRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Generate AI-powered tasks from goal title and description (frontend-compatible)"""
+    try:
+        # Create a simple AI prompt for task generation
+        from app.services.openai_service import openai_service
+        
+        # Use OpenAI to generate tasks directly from goal title/description
+        import openai
+        import json
+        from app.config import settings
+        
+        client = openai.OpenAI(api_key=settings.openai_api_key)
+        
+        prompt = f"""
+You are a productivity coach. Generate 5-7 actionable, specific tasks for this goal:
+
+Goal Title: {request.goal_title}
+Goal Description: {request.goal_description or "No additional description provided"}
+
+Generate tasks that are:
+1. Specific and actionable
+2. Appropriately sized (30-90 minutes each)
+3. Logically sequenced toward the goal
+4. Varied in approach and skill requirements
+
+Return your response as JSON with this exact structure:
+{{
+    "tasks": [
+        {{
+            "title": "Task title",
+            "description": "Detailed description",
+            "priority": "high|medium|low",
+            "estimatedDuration": 60
+        }}
+    ],
+    "goalAnalysis": "Brief analysis of the goal and task strategy"
+}}
+"""
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",  # Use cheaper model for this
+            messages=[
+                {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            max_tokens=1500
+        )
+        
+        try:
+            result = json.loads(response.choices[0].message.content)
+            return GoalBasedTaskGenerationResponse(
+                tasks=result.get("tasks", []),
+                goalAnalysis=result.get("goalAnalysis", "This goal requires focused effort and consistent action.")
+            )
+        except json.JSONDecodeError:
+            # Fallback if AI doesn't return valid JSON
+            return GoalBasedTaskGenerationResponse(
+                tasks=[
+                    {
+                        "title": f"Work on {request.goal_title}",
+                        "description": request.goal_description or "Focus on achieving this goal step by step",
+                        "priority": "medium",
+                        "estimatedDuration": 60
+                    }
+                ],
+                goalAnalysis="This goal requires focused effort and consistent action."
+            )
+        
+    except Exception as e:
+        # Always return a fallback response for the frontend
+        return GoalBasedTaskGenerationResponse(
+            tasks=[
+                {
+                    "title": f"Work on {request.goal_title}",
+                    "description": request.goal_description or "Focus on achieving this goal step by step",
+                    "priority": "medium",
+                    "estimatedDuration": 60
+                }
+            ],
+            goalAnalysis="This goal requires focused effort and consistent action."
+        )
 
 @router.post("/summarize-journal", response_model=JournalSummaryResponse)
 async def summarize_journal(

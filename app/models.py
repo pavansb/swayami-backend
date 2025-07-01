@@ -225,6 +225,15 @@ class TaskGenerationResponse(BaseModel):
     tasks: List[TaskCreate]
     reasoning: Optional[str] = None
 
+# Frontend-compatible models for task generation from goal title/description
+class GoalBasedTaskGenerationRequest(BaseModel):
+    goal_title: str = Field(..., min_length=1, max_length=200)
+    goal_description: str = Field(default="", max_length=1000)
+
+class GoalBasedTaskGenerationResponse(BaseModel):
+    tasks: List[dict]  # Frontend expects plain dict format
+    goalAnalysis: str  # Frontend expects 'goalAnalysis' not 'reasoning'
+
 class JournalSummaryRequest(BaseModel):
     journal_id: str
 
