@@ -4,6 +4,7 @@ from app.auth import get_current_user_id, get_user_id_flexible
 from app.repositories.user_repository import user_repository
 from typing import Optional
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -189,4 +190,59 @@ async def check_user_exists(email: str):
         return {"exists": user is not None, "email": email}
     except Exception as e:
         logger.error(f"Error checking user existence: {e}")
-        raise HTTPException(status_code=500, detail=f"Error checking user: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Error checking user: {str(e)}")
+
+@router.put("/by-email/{email}", response_model=User)
+async def update_user_by_email(
+    email: str,
+    update_data: UserUpdate,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    """Update user by email (temporary workaround for ID lookup issues)"""
+    try:
+        logger.info(f"🔄 UPDATE USER BY EMAIL: {email}")
+        logger.info(f"🔄 Update data: {update_data}")
+        
+        # Get user by email first
+        user = await user_repository.get_user_by_email(email)
+        if not user:
+            logger.warning(f"⚠️ User not found for email: {email}")
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        logger.info(f"✅ User found by email: {user.id}")
+        
+        # Use the found user's ID for update
+        updated_user = await user_repository.update_user(user.id, update_data)
+        if not updated_user:
+            # If update fails, try to manually perform the update using email lookup
+            logger.warning(f"⚠️ Standard update failed, trying direct email-based update")
+            
+            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            if update_dict:
+                update_dict["updated_at"] = datetime.utcnow()
+                
+                collection = user_repository.get_collection()
+                result = await collection.update_one(
+                    {"email": email},
+                    {"$set": update_dict}
+                )
+                
+                logger.info(f"📝 Direct email update result - matched: {result.matched_count}, modified: {result.modified_count}")
+                
+                if result.matched_count > 0:
+                    # Return updated user by email lookup
+                    updated_user = await user_repository.get_user_by_email(email)
+                    if updated_user:
+                        logger.info(f"✅ User updated via email fallback: {updated_user.id}")
+                        return updated_user
+            
+            raise HTTPException(status_code=500, detail="Failed to update user")
+            
+        logger.info(f"✅ User updated successfully via email: {updated_user.id}")
+        return updated_user
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ Error updating user by email: {e}")
+        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}") 
