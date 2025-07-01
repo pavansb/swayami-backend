@@ -29,30 +29,38 @@ class UserRepository:
         return User(**user_dict)
     
     async def get_user_by_id(self, user_id: str) -> Optional[User]:
-        """Get a user by ID"""
+        """Get a user by ID - handles both ObjectId and string _id formats"""
         try:
             logger.info(f"🔍 Looking up user by ID: {user_id}")
+            collection = self.get_collection()
             
-            # Validate ObjectId format
+            # Strategy 1: Try as ObjectId first
             try:
                 object_id = ObjectId(user_id)
                 logger.info(f"✅ Valid ObjectId created: {object_id}")
+                user_data = await collection.find_one({"_id": object_id})
+                logger.info(f"🔍 MongoDB query as ObjectId result: {user_data is not None}")
+                
+                if user_data:
+                    user_data["_id"] = str(user_data["_id"])
+                    logger.info(f"✅ User found via ObjectId: {user_data['_id']}")
+                    return User(**user_data)
+                    
             except Exception as oid_error:
-                logger.error(f"❌ Invalid ObjectId format: {user_id}, error: {oid_error}")
-                return None
+                logger.warning(f"⚠️ ObjectId conversion failed: {oid_error}")
             
-            collection = self.get_collection()
-            logger.info(f"🔍 Querying MongoDB collection: {self.collection_name}")
-            
-            user_data = await collection.find_one({"_id": object_id})
-            logger.info(f"🔍 MongoDB query result: {user_data is not None}")
+            # Strategy 2: Try as string _id (fallback)
+            logger.info(f"🔍 Trying query as string _id")
+            user_data = await collection.find_one({"_id": user_id})
+            logger.info(f"🔍 MongoDB query as string result: {user_data is not None}")
             
             if user_data:
+                # Ensure _id is string for consistency
                 user_data["_id"] = str(user_data["_id"])
-                logger.info(f"✅ User found and converted: {user_data['_id']}")
+                logger.info(f"✅ User found via string _id: {user_data['_id']}")
                 return User(**user_data)
             else:
-                logger.warning(f"⚠️ No user found in MongoDB for ObjectId: {object_id}")
+                logger.warning(f"⚠️ No user found in MongoDB for either ObjectId or string: {user_id}")
                 return None
                 
         except Exception as e:
@@ -74,18 +82,10 @@ class UserRepository:
             return None
     
     async def update_user(self, user_id: str, update_data: UserUpdate) -> Optional[User]:
-        """Update a user"""
+        """Update a user - handles both ObjectId and string _id formats"""
         try:
             logger.info(f"🔄 Updating user ID: {user_id}")
             logger.info(f"🔄 Update data: {update_data}")
-            
-            # Validate ObjectId format first
-            try:
-                object_id = ObjectId(user_id)
-                logger.info(f"✅ Valid ObjectId for update: {object_id}")
-            except Exception as oid_error:
-                logger.error(f"❌ Invalid ObjectId format for update: {user_id}, error: {oid_error}")
-                return None
             
             update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
             if not update_dict:
@@ -96,18 +96,37 @@ class UserRepository:
             logger.info(f"📝 Final update dict: {update_dict}")
             
             collection = self.get_collection()
+            
+            # Strategy 1: Try updating with ObjectId first
+            try:
+                object_id = ObjectId(user_id)
+                logger.info(f"✅ Valid ObjectId for update: {object_id}")
+                result = await collection.update_one(
+                    {"_id": object_id},
+                    {"$set": update_dict}
+                )
+                logger.info(f"📝 MongoDB update as ObjectId - matched: {result.matched_count}, modified: {result.modified_count}")
+                
+                if result.matched_count > 0:
+                    logger.info(f"✅ User updated via ObjectId, retrieving updated user")
+                    return await self.get_user_by_id(user_id)
+                    
+            except Exception as oid_error:
+                logger.warning(f"⚠️ ObjectId update failed: {oid_error}")
+            
+            # Strategy 2: Try updating with string _id (fallback)
+            logger.info(f"🔍 Trying update with string _id")
             result = await collection.update_one(
-                {"_id": object_id},
+                {"_id": user_id},
                 {"$set": update_dict}
             )
-            
-            logger.info(f"📝 MongoDB update result - matched: {result.matched_count}, modified: {result.modified_count}")
+            logger.info(f"📝 MongoDB update as string - matched: {result.matched_count}, modified: {result.modified_count}")
             
             if result.matched_count > 0:
-                logger.info(f"✅ User found for update, retrieving updated user")
+                logger.info(f"✅ User updated via string _id, retrieving updated user")
                 return await self.get_user_by_id(user_id)
             else:
-                logger.warning(f"⚠️ No user found to update with ObjectId: {object_id}")
+                logger.warning(f"⚠️ No user found to update with either ObjectId or string: {user_id}")
                 return None
                 
         except Exception as e:
