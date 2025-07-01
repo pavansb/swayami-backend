@@ -18,7 +18,7 @@ class JournalRepository:
     
     async def create_journal(self, user_id: str, journal_data: JournalCreate) -> Journal:
         """Create a new journal entry"""
-        journal_dict = journal_data.model_dump()
+        journal_dict = journal_data.dict()  # Fixed: Pydantic v1 compatibility
         journal_dict["user_id"] = user_id
         journal_dict["created_at"] = datetime.utcnow()
         journal_dict["updated_at"] = datetime.utcnow()
@@ -100,7 +100,7 @@ class JournalRepository:
     ) -> Optional[Journal]:
         """Update a journal entry"""
         try:
-            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
             if not update_dict:
                 return await self.get_journal_by_id(journal_id, user_id)
             

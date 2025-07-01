@@ -18,7 +18,7 @@ class GoalRepository:
     
     async def create_goal(self, user_id: str, goal_data: GoalCreate) -> Goal:
         """Create a new goal"""
-        goal_dict = goal_data.model_dump()
+        goal_dict = goal_data.dict()  # Fixed: Pydantic v1 compatibility
         goal_dict["user_id"] = user_id
         goal_dict["status"] = GoalStatus.ACTIVE
         goal_dict["progress"] = 0.0
@@ -82,7 +82,7 @@ class GoalRepository:
     ) -> Optional[Goal]:
         """Update a goal"""
         try:
-            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
             if not update_dict:
                 return await self.get_goal_by_id(goal_id, user_id)
             
