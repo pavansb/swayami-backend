@@ -9,6 +9,7 @@ FastAPI backend for Swayami - Self-reliance dashboard with AI-powered productivi
 - **Authentication**: JWT-based authentication with Supabase integration
 - **AI Integration**: OpenAI GPT for task generation and analysis
 - **CORS Support**: Configured for frontend integration
+- **Pydantic v1**: Using Pydantic 1.10.13 for Render deployment compatibility
 
 ## Quick Start
 
@@ -49,7 +50,38 @@ FastAPI backend for Swayami - Self-reliance dashboard with AI-powered productivi
    python main.py
    ```
 
+6. **Test Pydantic compatibility (optional):**
+   ```bash
+   python test_pydantic_v1.py
+   ```
+
 The API will be available at `http://localhost:8000`
+
+## Dependencies
+
+### Core Framework
+- **FastAPI**: 0.104.1
+- **Uvicorn**: 0.24.0 with standard extras
+- **Pydantic**: 1.10.13 (v1 for Render compatibility)
+- **email-validator**: 2.1.0 (for EmailStr validation)
+
+### Database
+- **PyMongo**: 4.6.0
+- **Motor**: 3.3.2 (async MongoDB driver)
+- **dnspython**: 2.4.2
+
+### AI & External APIs
+- **OpenAI**: 1.3.0
+- **httpx**: 0.25.2
+- **requests**: 2.31.0
+
+### Security
+- **python-jose**: 3.3.0
+- **passlib**: 1.7.4
+- **cryptography**: 39.0.0
+- **bcrypt**: >=4.0.0
+
+> **Note**: We use Pydantic v1.10.13 instead of v2.x to avoid Rust compilation dependencies that can cause deployment issues on platforms like Render. All code is designed to be v1 compatible while maintaining modern FastAPI features.
 
 ## Environment Variables
 
