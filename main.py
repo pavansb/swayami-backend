@@ -56,6 +56,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5173",
     # Production/Staging origins
     "https://swayami-focus-mirror.lovable.app",
+    "https://swayami-frontend.onrender.com",  # Render staging deployment
     "https://app.swayami.com",  # Future production domain
 ]
 
