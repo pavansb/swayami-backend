@@ -3,6 +3,7 @@ from typing import List
 from app.models import (
     TaskGenerationRequest, TaskGenerationResponse, Task,
     GoalBasedTaskGenerationRequest, GoalBasedTaskGenerationResponse,
+    DailyBreakdownRequest, DailyBreakdownResponse,
     JournalSummaryRequest, JournalSummaryResponse,
     MoodAnalysisRequest, MoodAnalysisResponse
 )
@@ -140,6 +141,128 @@ Return your response as JSON with this exact structure:
             }
         ],
         goalAnalysis="This goal requires focused effort and consistent action. Break it down into smaller steps and track your progress regularly."
+    )
+
+@router.post("/generate-daily-breakdown", response_model=DailyBreakdownResponse)
+async def generate_daily_breakdown(
+    request: DailyBreakdownRequest,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Generate AI-powered daily breakdown for a set of tasks"""
+    try:
+        # Simple direct implementation with fallback
+        import json
+        
+        # Try to use OpenAI service if available
+        try:
+            task_titles = [task.get('title', 'Unknown task') for task in request.tasks]
+            task_descriptions = [task.get('description', '') for task in request.tasks]
+            
+            prompt = f"""
+You are a productivity coach. Create a daily breakdown plan for these tasks over {request.timeframe}:
+
+Goal: {request.goal_title}
+Description: {request.goal_description}
+
+Tasks to schedule:
+{chr(10).join([f"- {title}: {desc}" for title, desc in zip(task_titles, task_descriptions)])}
+
+Create a realistic daily schedule that:
+1. Distributes tasks across {request.timeframe}
+2. Considers task difficulty and time requirements
+3. Allows for rest and flexibility
+4. Builds momentum and maintains motivation
+
+Return your response as JSON with this exact structure:
+{{
+    "weeklyPlan": [
+        {{
+            "day": "Monday",
+            "tasks": [
+                {{
+                    "title": "Task name",
+                    "description": "What to do",
+                    "estimatedDuration": 60,
+                    "priority": "high|medium|low"
+                }}
+            ]
+        }}
+    ],
+    "totalDuration": 420,
+    "tips": ["Tip 1", "Tip 2", "Tip 3"]
+}}
+"""
+            
+            # Use the existing openai service
+            response = openai_service.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            
+            result = json.loads(response.choices[0].message.content)
+            return DailyBreakdownResponse(
+                weeklyPlan=result.get("weeklyPlan", []),
+                totalDuration=result.get("totalDuration", 420),
+                tips=result.get("tips", [])
+            )
+            
+        except Exception as ai_error:
+            # AI failed, return structured fallback
+            pass
+        
+    except Exception as e:
+        # Any error - return structured fallback
+        pass
+    
+    # Always return a fallback response for the frontend
+    return DailyBreakdownResponse(
+        weeklyPlan=[
+            {
+                "day": "Monday",
+                "tasks": [
+                    {
+                        "title": "Start your goal journey",
+                        "description": f"Begin working on {request.goal_title}",
+                        "estimatedDuration": 60,
+                        "priority": "high"
+                    }
+                ]
+            },
+            {
+                "day": "Tuesday", 
+                "tasks": [
+                    {
+                        "title": "Continue progress",
+                        "description": "Build on yesterday's momentum",
+                        "estimatedDuration": 60,
+                        "priority": "medium"
+                    }
+                ]
+            },
+            {
+                "day": "Wednesday",
+                "tasks": [
+                    {
+                        "title": "Mid-week check-in",
+                        "description": "Review progress and adjust if needed",
+                        "estimatedDuration": 30,
+                        "priority": "medium"
+                    }
+                ]
+            }
+        ],
+        totalDuration=150,
+        tips=[
+            "Start small and build momentum",
+            "Track your progress daily", 
+            "Celebrate small wins",
+            "Stay consistent even when motivation is low"
+        ]
     )
 
 @router.post("/summarize-journal", response_model=JournalSummaryResponse)

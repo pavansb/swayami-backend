@@ -234,6 +234,18 @@ class GoalBasedTaskGenerationResponse(BaseModel):
     tasks: List[dict]  # Frontend expects plain dict format
     goalAnalysis: str  # Frontend expects 'goalAnalysis' not 'reasoning'
 
+# Daily breakdown models
+class DailyBreakdownRequest(BaseModel):
+    tasks: List[dict]  # List of task objects
+    goal_title: str = Field(..., min_length=1, max_length=200)
+    goal_description: str = Field(default="", max_length=1000)
+    timeframe: str = Field(default="7 days", max_length=50)
+
+class DailyBreakdownResponse(BaseModel):
+    weeklyPlan: List[dict]  # Frontend expects 'weeklyPlan' format
+    totalDuration: int  # Total minutes for all tasks
+    tips: List[str]  # Tips and recommendations
+
 class JournalSummaryRequest(BaseModel):
     journal_id: str
 
