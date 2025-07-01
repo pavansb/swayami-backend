@@ -247,7 +247,7 @@ async def update_user_by_email(
         logger.error(f"❌ Error updating user by email: {e}")
         raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
 
-@router.put("/{user_id}/debug", response_model=dict)
+@router.put("/debug/{user_id}", response_model=dict)
 async def debug_update_user(
     user_id: str, 
     update_data: UserUpdate,
