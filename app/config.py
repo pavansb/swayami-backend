@@ -7,7 +7,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # MongoDB Atlas connection
-    mongodb_uri: str = os.getenv("MONGODB_URI", "mongodb+srv://contactpavansb:gMM6ZpQ7ysZ1K1QX@swayami-app-db.wyd3sts.mongodb.net/?retryWrites=true&w=majority&appName=swayami-app-db")
+    mongodb_uri: str = os.getenv("MONGODB_URI") or os.getenv("MONGODB_URL", "mongodb+srv://contactpavansb:gMM6ZpQ7ysZ1K1QX@swayami-app-db.wyd3sts.mongodb.net/?retryWrites=true&w=majority&appName=swayami-app-db")
     database_name: str = os.getenv("DATABASE_NAME", "Swayami")
     
     # OpenAI Configuration
@@ -26,5 +26,6 @@ class Settings(BaseSettings):
     
     class Config:
         env_file = ".env"
+        extra = "allow"  # Allow extra fields to prevent validation errors
 
 settings = Settings() 
