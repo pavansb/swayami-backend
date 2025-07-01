@@ -18,7 +18,7 @@ class UserRepository:
     
     async def create_user(self, user_data: UserCreate) -> User:
         """Create a new user"""
-        user_dict = user_data.model_dump()
+        user_dict = user_data.dict()  # Fixed: Pydantic v1 compatibility
         user_dict["created_at"] = datetime.utcnow()
         user_dict["updated_at"] = datetime.utcnow()
         
@@ -86,7 +86,7 @@ class UserRepository:
             logger.info(f"🔄 Updating user ID: {user_id}")
             logger.info(f"🔄 Update data: {update_data}")
             
-            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
             if not update_dict:
                 logger.info(f"📝 No fields to update, returning existing user")
                 return await self.get_user_by_id(user_id)

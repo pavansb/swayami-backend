@@ -111,7 +111,7 @@ async def update_user(
         logger.info(f"✅ Found user email: {user_email}")
         
         # Step 2: Perform update using email-based MongoDB query (more reliable)
-        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
         if not update_dict:
             logger.info(f"📝 No fields to update, returning existing user")
             return existing_user
@@ -241,7 +241,7 @@ async def update_user_by_email(
             # If update fails, try to manually perform the update using email lookup
             logger.warning(f"⚠️ Standard update failed, trying direct email-based update")
             
-            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
             if update_dict:
                 update_dict["updated_at"] = datetime.utcnow()
                 
@@ -295,14 +295,14 @@ async def debug_update_user(
             }
         
         # Step 2: Check update_data parsing
-        update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+        update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
         logger.info(f"🐛 DEBUG: Update dict: {update_dict}")
         
         if not update_dict:
             return {
                 "message": "No fields to update",
                 "user_id": user_id,
-                "existing_user": existing_user.model_dump(),
+                "existing_user": existing_user.dict(),  # Fixed: Pydantic v1 compatibility
                 "step": "no_update_needed"
             }
         
