@@ -29,36 +29,35 @@ class UserRepository:
         return User(**user_dict)
     
     async def get_user_by_id(self, user_id: str) -> Optional[User]:
-        """Get a user by ID - simplified string-only approach"""
+        """Get a user by ID - ObjectId first approach (WORKING VERSION)"""
         try:
             logger.info(f"🔍 Looking up user by ID: {user_id}")
             collection = self.get_collection()
             
-            # Try as string _id first (most likely case)
-            logger.info(f"🔍 Querying as string _id: {user_id}")
-            user_data = await collection.find_one({"_id": user_id})
-            logger.info(f"🔍 MongoDB query as string result: {user_data is not None}")
-            
-            if user_data:
-                # Ensure _id is string for consistency
-                user_data["_id"] = str(user_data["_id"])
-                logger.info(f"✅ User found via string _id: {user_data['_id']}")
-                return User(**user_data)
-            
-            # Fallback: Try as ObjectId if string lookup fails
+            # Try as ObjectId first (this was working)
             try:
                 object_id = ObjectId(user_id)
-                logger.info(f"🔍 Fallback: Querying as ObjectId: {object_id}")
+                logger.info(f"🔍 Querying as ObjectId: {object_id}")
                 user_data = await collection.find_one({"_id": object_id})
                 logger.info(f"🔍 MongoDB query as ObjectId result: {user_data is not None}")
                 
                 if user_data:
                     user_data["_id"] = str(user_data["_id"])
-                    logger.info(f"✅ User found via ObjectId fallback: {user_data['_id']}")
+                    logger.info(f"✅ User found via ObjectId: {user_data['_id']}")
                     return User(**user_data)
                     
             except Exception as oid_error:
-                logger.warning(f"⚠️ ObjectId fallback failed: {oid_error}")
+                logger.warning(f"⚠️ ObjectId query failed: {oid_error}")
+            
+            # Fallback: Try as string _id
+            logger.info(f"🔍 Fallback: Querying as string _id: {user_id}")
+            user_data = await collection.find_one({"_id": user_id})
+            logger.info(f"🔍 MongoDB query as string result: {user_data is not None}")
+            
+            if user_data:
+                user_data["_id"] = str(user_data["_id"])
+                logger.info(f"✅ User found via string _id: {user_data['_id']}")
+                return User(**user_data)
             
             logger.warning(f"⚠️ No user found for ID: {user_id}")
             return None
