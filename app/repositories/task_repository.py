@@ -18,7 +18,7 @@ class TaskRepository:
     
     async def create_task(self, user_id: str, task_data: TaskCreate) -> Task:
         """Create a new task"""
-        task_dict = task_data.model_dump()
+        task_dict = task_data.dict()  # Fixed: Pydantic v1 compatibility
         task_dict["user_id"] = user_id
         task_dict["status"] = TaskStatus.PENDING
         task_dict["is_ai_generated"] = False
@@ -33,7 +33,7 @@ class TaskRepository:
     
     async def create_ai_task(self, user_id: str, task_data: TaskCreate) -> Task:
         """Create a new AI-generated task"""
-        task_dict = task_data.model_dump()
+        task_dict = task_data.dict()  # Fixed: Pydantic v1 compatibility
         task_dict["user_id"] = user_id
         task_dict["status"] = TaskStatus.PENDING
         task_dict["is_ai_generated"] = True
@@ -119,7 +119,7 @@ class TaskRepository:
     ) -> Optional[Task]:
         """Update a task"""
         try:
-            update_dict = {k: v for k, v in update_data.model_dump().items() if v is not None}
+            update_dict = {k: v for k, v in update_data.dict().items() if v is not None}  # Fixed: Pydantic v1 compatibility
             if not update_dict:
                 return await self.get_task_by_id(task_id, user_id)
             
