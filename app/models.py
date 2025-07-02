@@ -44,8 +44,13 @@ class UserBase(BaseModel):
     name: str
     theme: Theme = Theme.SYSTEM
 
-class UserCreate(UserBase):
-    pass
+class UserCreate(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    full_name: Optional[str] = None  
+    google_id: Optional[str] = None
+    avatar_url: Optional[str] = None
+    theme: Theme = Theme.SYSTEM
 
 class UserUpdate(BaseModel):
     name: Optional[str] = None
@@ -54,9 +59,14 @@ class UserUpdate(BaseModel):
 
 class User(UserBase):
     id: str = Field(alias="_id")
+    full_name: Optional[str] = None
+    google_id: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     has_completed_onboarding: bool = Field(default=False)
+    streak: Optional[int] = Field(default=0)
+    level: Optional[str] = Field(default="Mindful Novice")
     
     class Config:
         populate_by_name = True

@@ -19,8 +19,20 @@ class UserRepository:
     async def create_user(self, user_data: UserCreate) -> User:
         """Create a new user"""
         user_dict = user_data.dict()  # Fixed: Pydantic v1 compatibility
+        
+        # Handle name/full_name mapping for production compatibility
+        if user_dict.get("full_name") and not user_dict.get("name"):
+            user_dict["name"] = user_dict["full_name"]
+        elif not user_dict.get("name") and not user_dict.get("full_name"):
+            # Fallback to email prefix if no name provided
+            user_dict["name"] = user_dict.get("email", "").split("@")[0] or "User"
+            
+        # Ensure we have required fields
         user_dict["created_at"] = datetime.utcnow()
         user_dict["updated_at"] = datetime.utcnow()
+        user_dict["has_completed_onboarding"] = False
+        user_dict["streak"] = 0
+        user_dict["level"] = "Mindful Novice"
         
         collection = self.get_collection()
         result = await collection.insert_one(user_dict)
