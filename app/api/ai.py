@@ -15,6 +15,16 @@ from app.auth import get_current_user_id
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
+@router.get("/status")
+async def get_ai_status(user_id: str = Depends(get_current_user_id)):
+    """Get OpenAI service status and configuration"""
+    status = await openai_service.test_openai_connection()
+    return {
+        "openai_status": status,
+        "user_id": user_id,
+        "service_info": "AI-powered task generation, journal analysis, and productivity insights"
+    }
+
 @router.post("/generate-tasks", response_model=TaskGenerationResponse)
 async def generate_tasks(
     request: TaskGenerationRequest,
@@ -62,86 +72,30 @@ async def generate_tasks_from_goal(
 ):
     """Generate AI-powered tasks from goal title and description (frontend-compatible)"""
     try:
-        # Simple direct implementation with fallback
-        import json
+        # Use the improved OpenAI service
+        result = await openai_service.generate_smart_tasks_from_goal_description(
+            goal_title=request.goal_title,
+            goal_description=request.goal_description
+        )
         
-        # Try to use OpenAI service if available
-        try:
-            prompt = f"""
-You are a productivity coach. Generate 5-7 actionable, specific tasks for this goal:
-
-Goal Title: {request.goal_title}
-Goal Description: {request.goal_description or "No additional description provided"}
-
-Generate tasks that are:
-1. Specific and actionable
-2. Appropriately sized (30-90 minutes each)
-3. Logically sequenced toward the goal
-4. Varied in approach and skill requirements
-
-Return your response as JSON with this exact structure:
-{{
-    "tasks": [
-        {{
-            "title": "Task title",
-            "description": "Detailed description", 
-            "priority": "high|medium|low",
-            "estimatedDuration": 60
-        }}
-    ],
-    "goalAnalysis": "Brief analysis of the goal and task strategy"
-}}
-"""
-            
-            # Use the existing openai service
-            response = openai_service.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=1500
-            )
-            
-            result = json.loads(response.choices[0].message.content)
-            return GoalBasedTaskGenerationResponse(
-                tasks=result.get("tasks", []),
-                goalAnalysis=result.get("goalAnalysis", "This goal requires focused effort and consistent action.")
-            )
-            
-        except Exception as ai_error:
-            # AI failed, return structured fallback
-            pass
+        return GoalBasedTaskGenerationResponse(
+            tasks=result.get("tasks", []),
+            goalAnalysis=result.get("goalAnalysis", "")
+        )
         
     except Exception as e:
-        # Any error - return structured fallback
-        pass
-    
-    # Always return a fallback response for the frontend
-    return GoalBasedTaskGenerationResponse(
-        tasks=[
-            {
-                "title": f"Plan your approach to {request.goal_title}",
-                "description": "Break down this goal into smaller, manageable steps",
-                "priority": "high",
-                "estimatedDuration": 45
-            },
-            {
-                "title": f"Research strategies for {request.goal_title}",
-                "description": "Look up best practices and methods to achieve this goal",
-                "priority": "medium", 
-                "estimatedDuration": 60
-            },
-            {
-                "title": f"Take first action toward {request.goal_title}",
-                "description": request.goal_description or "Start with the most obvious first step",
-                "priority": "high",
-                "estimatedDuration": 30
-            }
-        ],
-        goalAnalysis="This goal requires focused effort and consistent action. Break it down into smaller steps and track your progress regularly."
-    )
+        # Even on error, return structured response for frontend
+        return GoalBasedTaskGenerationResponse(
+            tasks=[
+                {
+                    "title": f"Plan your approach to {request.goal_title}",
+                    "description": "Break down this goal into smaller steps",
+                    "priority": "high",
+                    "estimatedDuration": 45
+                }
+            ],
+            goalAnalysis=f"Error generating AI tasks: {str(e)}"
+        )
 
 @router.post("/generate-daily-breakdown", response_model=DailyBreakdownResponse)
 async def generate_daily_breakdown(
@@ -150,120 +104,39 @@ async def generate_daily_breakdown(
 ):
     """Generate AI-powered daily breakdown for a set of tasks"""
     try:
-        # Simple direct implementation with fallback
-        import json
+        # Use the improved OpenAI service
+        result = await openai_service.generate_daily_breakdown(
+            tasks=request.tasks,
+            goal_title=request.goal_title,
+            goal_description=request.goal_description,
+            timeframe=request.timeframe
+        )
         
-        # Try to use OpenAI service if available
-        try:
-            task_titles = [task.get('title', 'Unknown task') for task in request.tasks]
-            task_descriptions = [task.get('description', '') for task in request.tasks]
-            
-            prompt = f"""
-You are a productivity coach. Create a daily breakdown plan for these tasks over {request.timeframe}:
-
-Goal: {request.goal_title}
-Description: {request.goal_description}
-
-Tasks to schedule:
-{chr(10).join([f"- {title}: {desc}" for title, desc in zip(task_titles, task_descriptions)])}
-
-Create a realistic daily schedule that:
-1. Distributes tasks across {request.timeframe}
-2. Considers task difficulty and time requirements
-3. Allows for rest and flexibility
-4. Builds momentum and maintains motivation
-
-Return your response as JSON with this exact structure:
-{{
-    "weeklyPlan": [
-        {{
-            "day": "Monday",
-            "tasks": [
-                {{
-                    "title": "Task name",
-                    "description": "What to do",
-                    "estimatedDuration": 60,
-                    "priority": "high|medium|low"
-                }}
-            ]
-        }}
-    ],
-    "totalDuration": 420,
-    "tips": ["Tip 1", "Tip 2", "Tip 3"]
-}}
-"""
-            
-            # Use the existing openai service
-            response = openai_service.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are a helpful productivity coach. Always respond with valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                max_tokens=2000
-            )
-            
-            result = json.loads(response.choices[0].message.content)
-            return DailyBreakdownResponse(
-                weeklyPlan=result.get("weeklyPlan", []),
-                totalDuration=result.get("totalDuration", 420),
-                tips=result.get("tips", [])
-            )
-            
-        except Exception as ai_error:
-            # AI failed, return structured fallback
-            pass
+        return DailyBreakdownResponse(
+            weeklyPlan=result.get("weeklyPlan", []),
+            totalDuration=result.get("totalDuration", 420),
+            tips=result.get("tips", [])
+        )
         
     except Exception as e:
-        # Any error - return structured fallback
-        pass
-    
-    # Always return a fallback response for the frontend
-    return DailyBreakdownResponse(
-        weeklyPlan=[
-            {
-                "day": "Monday",
-                "tasks": [
-                    {
-                        "title": "Start your goal journey",
-                        "description": f"Begin working on {request.goal_title}",
-                        "estimatedDuration": 60,
-                        "priority": "high"
-                    }
-                ]
-            },
-            {
-                "day": "Tuesday", 
-                "tasks": [
-                    {
-                        "title": "Continue progress",
-                        "description": "Build on yesterday's momentum",
-                        "estimatedDuration": 60,
-                        "priority": "medium"
-                    }
-                ]
-            },
-            {
-                "day": "Wednesday",
-                "tasks": [
-                    {
-                        "title": "Mid-week check-in",
-                        "description": "Review progress and adjust if needed",
-                        "estimatedDuration": 30,
-                        "priority": "medium"
-                    }
-                ]
-            }
-        ],
-        totalDuration=150,
-        tips=[
-            "Start small and build momentum",
-            "Track your progress daily", 
-            "Celebrate small wins",
-            "Stay consistent even when motivation is low"
-        ]
-    )
+        # Even on error, return structured response for frontend
+        return DailyBreakdownResponse(
+            weeklyPlan=[
+                {
+                    "day": "Monday",
+                    "tasks": [
+                        {
+                            "title": "Start your goal journey",
+                            "description": f"Begin working on {request.goal_title}",
+                            "estimatedDuration": 60,
+                            "priority": "high"
+                        }
+                    ]
+                }
+            ],
+            totalDuration=60,
+            tips=[f"Error generating AI breakdown: {str(e)}"]
+        )
 
 @router.post("/summarize-journal", response_model=JournalSummaryResponse)
 async def summarize_journal(
@@ -426,7 +299,8 @@ async def get_quick_recommendations(
                 "pending_tasks": len(pending_tasks),
                 "recent_journals": len(recent_journals),
                 "active_goals": len(active_goals)
-            }
+            },
+            "openai_configured": openai_service.is_configured
         }
         
     except Exception as e:
