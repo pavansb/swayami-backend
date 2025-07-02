@@ -4,6 +4,7 @@ from typing import Optional
 import jwt
 import requests
 import json
+import base64
 from app.config import settings
 from app.models import AuthResponse
 from app.repositories.user_repository import user_repository
@@ -111,14 +112,12 @@ class SupabaseAuthService:
             logger.error(f"❌ SUPABASE AUTH: Error getting user from token: {e}")
             return None
 
-# Legacy auth service for backward compatibility during transition
 class LegacyAuthService:
     """Legacy mock authentication service for transition period"""
     
     def decode_mock_token(self, token: str) -> Optional[str]:
         """Decode the mock token format: base64(user_id:email)"""
         try:
-            import base64
             decoded = base64.b64decode(token).decode('utf-8')
             if ':' in decoded:
                 user_id, email = decoded.split(':', 1)
@@ -139,9 +138,76 @@ class LegacyAuthService:
             logger.error(f"Error getting user by email: {e}")
             return None
 
+class UnifiedAuthService:
+    """Unified authentication service that provides all auth functionality"""
+    
+    def __init__(self):
+        self.supabase_auth = SupabaseAuthService()
+        self.legacy_auth = LegacyAuthService()
+        
+        # Mock auth credentials for development
+        self.mock_user = {
+            "user_id": settings.mock_user_id,
+            "email": settings.mock_user_email,
+            "name": "Pavan SB",
+        }
+    
+    def verify_credentials(self, email: str, password: str) -> bool:
+        """Verify mock credentials for development"""
+        return (email == settings.mock_user_email and 
+                password == settings.mock_user_password)
+    
+    def create_access_token(self, user_id: str, email: str) -> str:
+        """Create access token for mock auth"""
+        token_data = f"{user_id}:{email}"
+        return base64.b64encode(token_data.encode()).decode()
+    
+    def authenticate(self, email: str, password: str) -> AuthResponse:
+        """Authenticate user and return auth response"""
+        if not self.verify_credentials(email, password):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password"
+            )
+        
+        access_token = self.create_access_token(self.mock_user["user_id"], email)
+        
+        return AuthResponse(
+            user_id=self.mock_user["user_id"],
+            email=self.mock_user["email"],
+            name=self.mock_user["name"],
+            access_token=access_token,
+            token_type="bearer"
+        )
+    
+    async def get_user_from_token(self, token: str) -> Optional[str]:
+        """Get user ID from any type of token"""
+        # Try Supabase JWT first (production)
+        try:
+            user_id = await self.supabase_auth.get_user_from_token(token)
+            if user_id:
+                logger.info(f"✅ SUPABASE AUTH: Authenticated user: {user_id}")
+                return user_id
+        except Exception as e:
+            logger.warning(f"⚠️ SUPABASE AUTH: Failed, trying legacy: {e}")
+        
+        # Fallback to legacy mock auth (development/testing)
+        try:
+            email = self.legacy_auth.decode_mock_token(token)
+            if email:
+                user_id = await self.legacy_auth.get_user_id_from_email(email)
+                if user_id:
+                    logger.info(f"✅ LEGACY AUTH: Authenticated user: {user_id}")
+                    return user_id
+        except Exception as e:
+            logger.warning(f"⚠️ LEGACY AUTH: Failed: {e}")
+        
+        return None
+
 # Initialize services
 supabase_auth = SupabaseAuthService()
 legacy_auth = LegacyAuthService()
+auth_service = UnifiedAuthService()  # This is what api/auth.py imports
 
 async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     """
@@ -157,30 +223,52 @@ async def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depend
     token = credentials.credentials
     logger.info("🔐 AUTH: Processing authentication token...")
     
-    # Try Supabase JWT first (production)
-    try:
-        user_id = await supabase_auth.get_user_from_token(token)
-        if user_id:
-            logger.info(f"✅ SUPABASE AUTH: Authenticated user: {user_id}")
-            return user_id
-    except Exception as e:
-        logger.warning(f"⚠️ SUPABASE AUTH: Failed, trying legacy: {e}")
-    
-    # Fallback to legacy mock auth (development/testing)
-    try:
-        email = legacy_auth.decode_mock_token(token)
-        if email:
-            user_id = await legacy_auth.get_user_id_from_email(email)
-            if user_id:
-                logger.info(f"✅ LEGACY AUTH: Authenticated user: {user_id}")
-                return user_id
-    except Exception as e:
-        logger.warning(f"⚠️ LEGACY AUTH: Failed: {e}")
+    user_id = await auth_service.get_user_from_token(token)
+    if user_id:
+        return user_id
     
     logger.error("❌ AUTH: All authentication methods failed")
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Invalid authentication token"
+    )
+
+async def get_user_id_flexible(authorization: Optional[str] = Header(None)) -> str:
+    """
+    Flexible user ID extraction with production-grade lookup
+    Supports both Bearer tokens and Basic auth for backward compatibility
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header required"
+        )
+    
+    # Handle Bearer token
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]  # Remove "Bearer " prefix
+        user_id = await auth_service.get_user_from_token(token)
+        if user_id:
+            return user_id
+    
+    # Handle Basic auth
+    elif authorization.startswith("Basic "):
+        try:
+            credentials = authorization[6:]  # Remove "Basic " prefix
+            decoded = base64.b64decode(credentials).decode()
+            email, password = decoded.split(":", 1)
+            
+            # Look up user by email in MongoDB
+            user_id = await legacy_auth.get_user_id_from_email(email)
+            if user_id:
+                return user_id
+                
+        except Exception as e:
+            logger.error(f"Basic auth error: {e}")
+    
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid authentication credentials"
     )
 
 # Keep legacy endpoint for transition
