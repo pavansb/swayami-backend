@@ -13,19 +13,7 @@ async def login(auth_request: MockAuthRequest):
     Password: test123
     """
     try:
-        response = auth_service.authenticate(auth_request.email, auth_request.password)
-        
-        # Ensure user exists in database
-        existing_user = await user_repository.get_user_by_email(auth_request.email)
-        if not existing_user:
-            # Create user if doesn't exist
-            from app.models import UserCreate, Theme
-            user_data = UserCreate(
-                email=auth_request.email,
-                name="Pavan SB",
-                theme=Theme.SYSTEM
-            )
-            await user_repository.create_user(user_data)
+        response = await auth_service.authenticate(auth_request.email, auth_request.password)
         
         return response
         

@@ -48,9 +48,19 @@ async def get_current_user(user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=f"Error retrieving user: {str(e)}")
 
 @router.get("/{user_id}", response_model=User)
-async def get_user_by_id(user_id: str):
-    """Get user by ID"""
+async def get_user_by_id(
+    user_id: str,
+    current_user_id: str = Depends(get_current_user_id)
+):
+    """Get user by ID - SECURED: Users can only access their own data"""
     try:
+        # Security check: Users can only access their own data
+        if user_id != current_user_id:
+            raise HTTPException(
+                status_code=403, 
+                detail="You can only access your own user data"
+            )
+        
         user = await user_repository.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")

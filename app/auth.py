@@ -145,11 +145,10 @@ class UnifiedAuthService:
         self.supabase_auth = SupabaseAuthService()
         self.legacy_auth = LegacyAuthService()
         
-        # Mock auth credentials for development
-        self.mock_user = {
-            "user_id": settings.mock_user_id,
+        # Mock auth credentials for development (only for credential verification)
+        self.mock_credentials = {
             "email": settings.mock_user_email,
-            "name": "Pavan SB",
+            "password": settings.mock_user_password,
         }
     
     def verify_credentials(self, email: str, password: str) -> bool:
@@ -162,23 +161,46 @@ class UnifiedAuthService:
         token_data = f"{user_id}:{email}"
         return base64.b64encode(token_data.encode()).decode()
     
-    def authenticate(self, email: str, password: str) -> AuthResponse:
-        """Authenticate user and return auth response"""
+    async def authenticate(self, email: str, password: str) -> AuthResponse:
+        """Authenticate user and return auth response - FIXED VERSION"""
         if not self.verify_credentials(email, password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password"
             )
         
-        access_token = self.create_access_token(self.mock_user["user_id"], email)
-        
-        return AuthResponse(
-            user_id=self.mock_user["user_id"],
-            email=self.mock_user["email"],
-            name=self.mock_user["name"],
-            access_token=access_token,
-            token_type="bearer"
-        )
+        # CRITICAL FIX: Get the actual user's ID from MongoDB instead of hardcoded value
+        try:
+            # Look up user by email in MongoDB
+            user = await user_repository.get_user_by_email(email)
+            if not user:
+                # If user doesn't exist, create them
+                from app.models import UserCreate, Theme
+                user_data = UserCreate(
+                    email=email,
+                    name="Pavan SB",  # Default name - can be updated later
+                    theme=Theme.SYSTEM
+                )
+                user = await user_repository.create_user(user_data)
+                logger.info(f"✅ Created new user: {user.id}")
+            
+            # Create token with the actual user's MongoDB ID
+            access_token = self.create_access_token(user.id, email)
+            
+            return AuthResponse(
+                user_id=user.id,  # Use actual user ID, not hardcoded
+                email=user.email,
+                name=user.name,
+                access_token=access_token,
+                token_type="bearer"
+            )
+            
+        except Exception as e:
+            logger.error(f"❌ Error during authentication: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Authentication system error"
+            )
     
     async def get_user_from_token(self, token: str) -> Optional[str]:
         """Get user ID from any type of token"""
