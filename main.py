@@ -91,7 +91,9 @@ ALLOWED_ORIGINS = [
     # Production/Staging origins
     "https://swayami-focus-mirror.lovable.app",
     "https://swayami-frontend.onrender.com",  # Render staging deployment
-    "https://app.swayami.com",  # Future production domain
+    # Production domains
+    "https://app.swayami.com",  # Frontend app
+    "https://swayami.com",  # Landing page
 ]
 
 ALLOWED_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
