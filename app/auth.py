@@ -22,6 +22,7 @@ class SupabaseAuthService:
     def __init__(self):
         # Supabase configuration from your frontend
         self.supabase_url = "https://pbeborjasiiwuudfnzhm.supabase.co"
+        self.supabase_issuer = f"{self.supabase_url}/auth/v1"
         self.supabase_anon_key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBiZWJvcmphc2lpd3V1ZGZuemhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTA2OTg5MDcsImV4cCI6MjA2NjI3NDkwN30.b6I79NZOQUM8mJpLO-k3tzdDrF20s5nSZ2clGLN5MNY"
         self.jwt_secret = self.supabase_anon_key  # For development - in production use the actual JWT secret
         self._jwks_cache = None
@@ -62,7 +63,7 @@ class SupabaseAuthService:
                 logger.info(f"✅ SUPABASE AUTH: JWT decoded successfully for user: {payload.get('email')}")
                 
                 # Basic validation
-                if payload.get('iss') != self.supabase_url:
+                if payload.get('iss') not in [self.supabase_url, self.supabase_issuer]:
                     logger.error(f"❌ SUPABASE AUTH: Invalid issuer: {payload.get('iss')}")
                     return None
                     
