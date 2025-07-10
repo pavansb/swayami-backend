@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     mock_user_password: str = "test123"
     mock_user_id: str = "user_123"
     
+    # Brand Colors - Swayami Green Theme
+    brand_primary_color: str = "#6FCC7F"  # Swayami Green
+    brand_primary_hover: str = "#5bb96a"
+    brand_primary_light: str = "#e8f5ea"
+    brand_primary_dark: str = "#4a8f54"
+    brand_accent_color: str = "#9650D4"  # Purple accent (kept for contrast)
+    brand_success_color: str = "#6FCC7F"
+    brand_error_color: str = "#e53e3e"
+    brand_warning_color: str = "#d69e2e"
+    brand_info_color: str = "#3182ce"
+    
     class Config:
         env_file = ".env"
         extra = "allow"  # Allow extra fields to prevent validation errors

@@ -15,7 +15,44 @@ app = FastAPI(
     description="Self-Reliance Dashboard - Goal-based productivity companion with AI-powered insights",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc"
+    redoc_url="/redoc",
+    # Custom Swagger UI theming with brand colors
+    swagger_ui_parameters={
+        "defaultModelsExpandDepth": -1,
+        "displayRequestDuration": True,
+        "tryItOutEnabled": True,
+        "syntaxHighlight.theme": "arta",
+        "layout": "StandaloneLayout",
+        "deepLinking": True,
+        # Inject custom CSS directly
+        "customCss": """
+        :root {
+            --primary-color: #6FCC7F;
+            --primary-hover: #5bb96a;
+        }
+        .swagger-ui .topbar { 
+            background: linear-gradient(135deg, var(--primary-color) 0%, #9650D4 100%);
+            border-bottom: 3px solid var(--primary-color);
+        }
+        .swagger-ui .info .title { color: var(--primary-color); font-weight: 700; }
+        .swagger-ui .btn.authorize,
+        .swagger-ui .btn.execute { 
+            background: var(--primary-color); 
+            border-color: var(--primary-color); 
+        }
+        .swagger-ui .btn.authorize:hover,
+        .swagger-ui .btn.execute:hover { 
+            background: var(--primary-hover); 
+            border-color: var(--primary-hover); 
+        }
+        .swagger-ui .opblock.opblock-get { border-color: var(--primary-color); }
+        .swagger-ui .opblock.opblock-post { border-color: var(--primary-color); }
+        .swagger-ui .opblock.opblock-get .opblock-summary-method,
+        .swagger-ui .opblock.opblock-post .opblock-summary-method { 
+            background: var(--primary-color); 
+        }
+        """
+    }
 )
 
 # Startup event
